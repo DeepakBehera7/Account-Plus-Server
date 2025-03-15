@@ -131,7 +131,6 @@ const get_indivisual_budget_max_seq = (req, res, db) => {
       }
     })
     .catch((err) => {
-      console.error("Error retrieving budget repetition count:", err);
       res.status(500).json({ error: "Internal Server Error" });
     });
 };
@@ -161,7 +160,9 @@ const checkVoucherNumberExistOrNot = (req, res, con) => {
 
 
 const insert_outWordVoucher = (req, res, con) => {
-  const { Scheme_name, vch_no, Vch_type, Vch_date, Chq_no, Chq_date, Bank_name, Vch_desc, total_Amount, table_name,Financial_year } = req.body;
+  const Chq_no = null
+  const Chq_date = null
+  const { Scheme_name, vch_no, Vch_type, Vch_date,Bank_name, Vch_desc, total_Amount, table_name,Financial_year } = req.body;
   const values = [Scheme_name, vch_no, Vch_type, Vch_date, Chq_no, Chq_date, Bank_name, Vch_desc, total_Amount,Financial_year]
   const q = "select * from " + table_name + " where vch_no = ? ";
   con.connect((err) => {
@@ -287,29 +288,25 @@ const get_all_accountDes = (con, req, res) => {
     
     con.connect(function (err) {
       if (err) {
-        console.error("Database connection error:", err);
+
         res.status(500).json({ error: "Database connection error" });
         return;
       }
 
       con.query(qry, function (err, result, fields) {
         if (err) {
-          console.error("Database query error:", err);
           res.status(500).json({ error: "Database query error" });
           return;
         }
 
         if (result.length > 0) {
-          console.log("Record Present..");
           res.json(result);
         } else {
-          console.log(result + "--result");
           res.json([]);
         }
       });
     });
   } catch (error) {
-    console.error("An unexpected error occurred:", error);
     res.status(500).json({ error: "An unexpected error occurred" });
   }
 };
@@ -320,11 +317,9 @@ const get_AccountDetails = (req, res, con) => {
   con.connect(function (err) {
     con.query(qry, function (err, result, fields) {
       if (result.length > 0) {
-        console.log("Record Present..")
         res.json(result)
       }
       else {
-        console.log(result + "--result")
         res.json([])
       }
     });
@@ -531,7 +526,9 @@ const DeleteVoucher = (req, res, con) => {
 
 const insert_Edited_voucher = (req, res, con) => {
   const data = req.body;
-  const { Scheme_name, vch_no, Vch_type, Vch_date, Chq_no, Chq_date, Bank_name, Vch_desc, total_Amount, inWord_allRows,Financial_year } = req.body;
+  const Chq_no = null;
+  const Chq_date = null;
+  const { Scheme_name, vch_no, Vch_type, Vch_date, Bank_name, Vch_desc, total_Amount, inWord_allRows,Financial_year } = req.body;
   const valuesForOutWard = [Scheme_name, vch_no, Vch_type, Vch_date, Chq_no, Chq_date, Bank_name, Vch_desc, total_Amount,Financial_year];
   const valuesForInWord = inWord_allRows;
 
@@ -569,7 +566,7 @@ const insert_Edited_voucher = (req, res, con) => {
           con.query(q2, [valuesForOutWard], (err, results) => {
             if (err) {
               con.rollback(() => {
-                res.status(500).json({ error: "Error inserting into your_table_name" });
+                res.status(500).json({ error: "Error inserting into Outward_vchentry" });
               });
               return;
             }
@@ -582,8 +579,7 @@ const insert_Edited_voucher = (req, res, con) => {
                 return;
               }
 
-              const mapValuesForInWord = valuesForInWord.map(item => [item.scheme_name, item.accountDesName, item.accountFrom, item.accountTo, item.accountTy, item.vch_no, item.acc_id, item.vch_type, item.vch_date,item.financial_year]);
-
+              const mapValuesForInWord = valuesForInWord.map(item => [item.scheme_name, item.accountDesName, item.accountFrom, item.accountTo, item.accountTy, item.vch_no, item.acc_id, item.vch_type, item.vch_date,item.Financial_year]);
               con.query(q4, [mapValuesForInWord], (err, results) => {
                 if (err) {
                   con.rollback(() => {
@@ -626,7 +622,6 @@ const insertRecordToDB = (con, qry) => {
   con.connect(function (err) {
     con.query(qry, function (err, result, fields) {
       if (err) throw err;
-
     });
   });
 }
@@ -683,11 +678,9 @@ const processDaybook = (req, res, db) => {
     if (err) return res.json({ error: err.sqlMessage });
     else {
       db.query("select * from daybook_payment;", (errpay, datapayment) => {
-        console.log("4444444444444444444", datapayment);
         if (errpay) return res.json({ error: errpay.sqlMessage });
         else {
           db.query("select * from daybook_received;", (errrec, datareceived) => {
-            console.log(errrec, datareceived);
             if (errrec) return res.json({ error: errrec.sqlMessage });
             else {
               const datapaymentres = utilcomponent.rowToJsonPaymentResponse(datapayment);
@@ -710,6 +703,55 @@ const fetchDaybookObCb = (req, res, db) => {
     else {
       return res.json({ data });
     }
+  });
+};
+
+
+//trial balance
+
+const getAccNameAsperScheme =(req,res,db)=>{
+  const schemeName = req.body.schemeName
+  db.query("select acc_name from account_plus.obmaster_master where Scheme_name = ?", [schemeName], (err,data)=>{
+    if (err) return res.json({error:err.sqlMessage});
+      else{
+        return res.json({ data });
+      }
+  })
+}
+
+const getAllRecordsForTrailBalance = (req, res, db) => {
+  const { schemeName, accountName, startDate, endDate } = req.body.temp;
+
+  const query = `
+      SELECT 
+          i.id AS inword_view_id,
+          i.scheme_name,
+          i.vchno,
+          i.vch_ty,
+          i.account_desc,
+          i.amount_rec,
+          i.amount_pay,
+          i.acc_id,
+          i.vch_type,
+          i.vch_date,
+          COALESCE(o.vch_desc, '') AS vch_des
+      FROM 
+          account_plus.inword_vchentry i
+      LEFT JOIN 
+          account_plus.outward_vchentry_view o 
+      ON 
+          i.vchno = o.vch_no
+      WHERE 
+          i.scheme_name = ? 
+          AND i.account_desc = ? 
+          AND i.vch_date BETWEEN ? AND ?
+  `;
+
+  db.query(query, [schemeName, accountName, startDate, endDate], (err, data) => {
+    if (err) {
+      return res.status(500).json({ error: err.sqlMessage });
+    }
+    return res.json({ data });
   });
 };
 
@@ -740,5 +782,7 @@ module.exports = {
   processDaybook,
   get_indivisual_budget_max_seq,
   checkVoucherNumberExistOrNot,
-  fetchDaybookObCb
+  fetchDaybookObCb,
+  getAccNameAsperScheme,
+  getAllRecordsForTrailBalance
 }

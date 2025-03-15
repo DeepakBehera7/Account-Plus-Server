@@ -102,6 +102,12 @@ app.post('/processMaster', (req, res) => main.processMaster(req,res,con))
 app.post('/processDaybook', (req, res) => main.processDaybook(req,res,con))
 app.post('/fetchDaybookObCb', (req, res) => main.fetchDaybookObCb(req,res,con))
 
+//trial balance 
+
+app.post("/getAccNameAsperScheme",(req,res)=>main.getAccNameAsperScheme(req,res,con))
+app.post("/getAllRecordsForTrailBalance",(req,res)=>main.getAllRecordsForTrailBalance(req,res,con))
+
+
 app.post("/upload", (req, res) => {
 
   const newpath = __dirname + "\\files\\";
